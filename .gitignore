@@ -1,0 +1,8 @@
+out/
+build/cache/
+helper/bootfiles/*
+!helper/bootfiles/README.md
+*.img
+*.iso
+*.qcow2
+*.raw
