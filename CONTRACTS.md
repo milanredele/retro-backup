@@ -112,7 +112,9 @@ BACKUP/<machine>/scan.tsv                       copy of the scan result
 MBR with syslinux `mbr.bin`, DOS partition table. p1: FAT32, 256 MiB, type 0x0C, active, label
 `RETROBOOT`, contains `syslinux.cfg`, `ldlinux.sys`, `vmlinuz`, `retro.gz`, `plpbt.iso`,
 `README.txt`. p2: exFAT, label `RETRODATA`, fills the rest (image ships at 1 GiB total; `flash.sh`
-grows p2 to the stick). syslinux.cfg `APPEND initrd=retro.gz quiet nomodeset vga=normal norestore
+grows p2 to the stick on Linux). On first boot the client (`05-stick.sh`) grows p2 to the end
+of the stick itself when it is still empty, so a stick flashed from macOS or Windows is fully
+usable too; `retro.nogrow=1` disables that. syslinux.cfg `APPEND initrd=retro.gz quiet nomodeset vga=normal norestore
 noswap nodhcp base rootfstype=ramfs retro.boot=usb`, plus a second entry `safe` adding `acpi=off noapic nolapic`.
 `rootfstype=ramfs` is mandatory on every boot line: without it the kernel caps the unpacked
 initramfs at half of RAM and machines with less than 192 MB lose the tail of the archive.

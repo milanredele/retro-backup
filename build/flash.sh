@@ -104,7 +104,7 @@ Darwin)
     say "macOS cannot resize it here. To use the whole stick either:"
     say "  - flash from Linux (this script grows it), or"
     say "  - on Linux: sudo sfdisk -N 2 /dev/sdX <<< ', +' && sudo mkfs.exfat -n RETRODATA /dev/sdX2"
-    say "  - or let the client grow it on first boot (planned, PLAN.md section 5)"
+    say "  - or just boot the stick once: the client grows RETRODATA on first boot while it is empty"
     diskutil eject "$DEV" >/dev/null 2>&1 || true
     ;;
 Linux)

@@ -33,6 +33,7 @@ FIFO=$WORK/in; mkfifo "$FIFO"; : >"$LOG"
 # Stick: persistent copy so the copied files survive for inspection; victim: written through
 # (no snapshot) so a stray write would show up in the hash check.
 cp "$OUT/retro-backup.img" "$WORK/stick.img"
+truncate -s 2G "$WORK/stick.img"   # bigger than the image: first boot must grow RETRODATA
 "$QEMU" -cpu "$CPU" -m "$MEM" -M pc \
     -drive file="$WORK/stick.img",format=raw,if=ide,index=0 \
     -drive file="$VICTIM",format=raw,if=ide,index=1 \
@@ -54,6 +55,7 @@ echo "=== scan.tsv ($(wc -l < $R/scan.tsv) groups)"; cat $R/scan.tsv
 chk() { if [ "$2" = "$3" ]; then echo "CHECK $1 OK"; else echo "CHECK $1 FAIL (got $2 want $3)"; fi; }
 chk volumes "$(wc -l < $R/volumes.tsv)" 4
 chk os_hints "$(cut -f6 $R/volumes.tsv | sort | tr "\n" ,)" "data,linux,win7,winxp,"
+chk grown "$(awk -v s="$(cat /sys/class/block/sda2/size)" "BEGIN{print (s > 3145728) ? 1 : 0}")" 1
 chk fs_ntfs "$(cut -f2 $R/volumes.tsv | grep -c ntfs)" 2
 chk fotok "$(awk -F"\t" "\$7==\"Fotók 2007\"{print \$8}" $R/scan.tsv)" 60
 chk dcim "$(awk -F"\t" "\$7 ~ /DCIM/{s+=\$8} END{print s+0}" $R/scan.tsv)" 53

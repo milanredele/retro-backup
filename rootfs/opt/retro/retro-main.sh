@@ -60,6 +60,11 @@ main() {
 	trap 'exit 130' INT TERM HUP
 	log INFO "main: start on $(tty 2>/dev/null), boot=$(retro_param retro.boot unknown), dest=$(retro_param retro.dest none)"
 	while :; do
+		if [ ! -f "$RETRO_RUN/stick.done" ]; then
+			dlg --infobox "$T_STICK_WAIT" 5 70
+			sh "$RETRO_HOME/05-stick.sh" 2>>"$RETRO_RUN/stick.err" || log WARN "main: 05-stick.sh exited with $?"
+			: >"$RETRO_RUN/stick.done"
+		fi
 		dlg --infobox "$T_DEVICES_WAIT" 5 64
 		if ! sh "$RETRO_HOME/10-devices.sh" 2>>"$RETRO_RUN/devices.err"; then
 			step_failed devices

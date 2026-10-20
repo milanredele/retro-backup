@@ -38,7 +38,8 @@ make test-qemu    # boots the image on an emulated Pentium III with 256 MB (QEMU
 **Pendrive.** Write `out/retro-backup.img` to a stick of 8 GB or more with `build/flash.sh /dev/diskN`
 (or Rufus in DD mode, or balenaEtcher). The stick has two partitions: `RETROBOOT` (boot files)
 and `RETRODATA` (exFAT, where the copies land; old Windows versions do not show it, modern
-machines do). Boot the old PC from USB (boot menu is usually F12, F8, Esc or F11; if the BIOS
+machines do). The image is 1 GiB; on the first boot the client extends `RETRODATA` to the whole
+stick while it is still empty, so a 32 GB stick gives about 31 GB of copy space. Boot the old PC from USB (boot menu is usually F12, F8, Esc or F11; if the BIOS
 has no USB boot, burn `out/retro.iso` or the included Plop Boot Manager to a CD).
 
 **LAN.** On a modern machine on the same wired network run `retro-helper --pxe --iface <nic>`,
