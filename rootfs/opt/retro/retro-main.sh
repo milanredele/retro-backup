@@ -11,6 +11,7 @@ export TERM
 DIALOG=${DIALOG:-dialog}
 UI_LOCALE=${RETRO_UI_LOCALE:-C.UTF-8}
 LOCK=$RETRO_RUN/main.pid
+ui_geometry
 
 dlg() {
 	LC_ALL=$UI_LOCALE "$DIALOG" --backtitle "$T_BACKTITLE" --cr-wrap --stdout "$@"
@@ -27,11 +28,11 @@ step_failed() {
 	log ERROR "main: step '$1' failed"
 	while :; do
 		_c=$(dlg --title "$T_ERROR_TITLE" --no-tags --menu "$T_ERROR_STEP $1\n\n$(tail -n 3 "$RETRO_LOG" 2>/dev/null)" \
-			18 76 5 retry "$T_ERROR_RETRY" log "$T_MENU_LOG" shell "$T_MENU_SHELL" \
+			18 "$UI_W_BIG" 5 retry "$T_ERROR_RETRY" log "$T_MENU_LOG" shell "$T_MENU_SHELL" \
 			poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
 		case $_c in
 		retry | "") return 0 ;;
-		log) dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" 22 78 ;;
+		log) dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" "$UI_H_BIG" "$UI_W_BIG" ;;
 		shell) shell ;;
 		poweroff | reboot)
 			sync
@@ -44,7 +45,7 @@ step_failed() {
 
 # no_volumes: nothing to scan; offer rescan, shell, power off.
 no_volumes() {
-	dlg --title "$T_ERROR_TITLE" --msgbox "$T_NO_VOLUMES" 14 70
+	dlg --title "$T_ERROR_TITLE" --msgbox "$T_NO_VOLUMES" 14 "$UI_W_MED"
 	step_failed devices
 }
 
@@ -61,11 +62,11 @@ main() {
 	log INFO "main: start on $(tty 2>/dev/null), boot=$(retro_param retro.boot unknown), dest=$(retro_param retro.dest none)"
 	while :; do
 		if [ ! -f "$RETRO_RUN/stick.done" ]; then
-			dlg --infobox "$T_STICK_WAIT" 5 70
+			dlg --infobox "$T_STICK_WAIT" 5 "$UI_W_MED"
 			sh "$RETRO_HOME/05-stick.sh" 2>>"$RETRO_RUN/stick.err" || log WARN "main: 05-stick.sh exited with $?"
 			: >"$RETRO_RUN/stick.done"
 		fi
-		dlg --infobox "$T_DEVICES_WAIT" 5 64
+		dlg --infobox "$T_DEVICES_WAIT" 5 "$UI_W_MED"
 		if ! sh "$RETRO_HOME/10-devices.sh" 2>>"$RETRO_RUN/devices.err"; then
 			step_failed devices
 			continue

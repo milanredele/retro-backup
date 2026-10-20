@@ -255,6 +255,46 @@ dest_conf() {
 	sed -n "s/^$1=//p" "$RETRO_RUN/dest.conf" 2>/dev/null | head -n 1
 }
 
+# ui_geometry: terminal size into UI_LINES / UI_COLS (at least 24x80) and the dialog box
+# sizes derived from it. Size from, in order: stty size on /dev/tty, $LINES / $COLUMNS,
+# tput, else 24x80. On 80x25 the boxes keep their old sizes (within a row or column).
+#   UI_W_BIG UI_H_BIG UI_L_BIG  checklist, textboxes, summary (L = list rows = H - 8)
+#   UI_H_MED UI_L_MED           destination and error menus (L = H - 8)
+#   UI_W_MED                    message, yes/no, gauge, input and info boxes, small menus
+_ui_num() { case $1 in '' | *[!0-9]*) return 1 ;; esac; }
+# shellcheck disable=SC2034 # UI_* are used by the scripts sourcing this file
+ui_geometry() {
+	_gl=
+	_gc=
+	_gs=$(stty size 2>/dev/null </dev/tty) || _gs=
+	read -r _gl _gc _gx <<EOS
+$_gs
+EOS
+	if ! _ui_num "$_gl" || ! _ui_num "$_gc" || [ "$_gl" = 0 ] || [ "$_gc" = 0 ]; then
+		_gl=${LINES:-}
+		_gc=${COLUMNS:-}
+	fi
+	if ! _ui_num "$_gl" || ! _ui_num "$_gc"; then
+		_gl=
+		_gc=
+		if have tput; then
+			_gl=$(tput lines 2>/dev/null)
+			_gc=$(tput cols 2>/dev/null)
+		fi
+	fi
+	_ui_num "$_gl" || _gl=24
+	_ui_num "$_gc" || _gc=80
+	UI_LINES=$((_gl < 24 ? 24 : _gl))
+	UI_COLS=$((_gc < 80 ? 80 : _gc))
+	UI_W_BIG=$((UI_COLS - 4 > 120 ? 120 : UI_COLS - 4))
+	UI_H_BIG=$((UI_LINES - 2 > 44 ? 44 : UI_LINES - 2))
+	UI_L_BIG=$((UI_H_BIG - 8))
+	UI_W_MED=$((UI_COLS - 10 > 90 ? 90 : UI_COLS - 10))
+	UI_H_MED=$((UI_LINES - 7 > 24 ? 24 : UI_LINES - 7))
+	UI_L_MED=$((UI_H_MED - 8))
+	return 0
+}
+
 # i18n: UI strings live in lib/i18n/<lang>.sh as variables (T_*).
 if [ -r "$RETRO_LIB/i18n/$RETRO_LANG.sh" ]; then
 	# shellcheck source=i18n/en.sh

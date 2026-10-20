@@ -17,6 +17,7 @@ UI_LOCALE=${RETRO_UI_LOCALE:-C.UTF-8}
 UI_TMP=$RETRO_RUN/ui.tmp
 CHECKED=$RETRO_RUN/ui.checked
 mkdir -p "$UI_TMP"
+ui_geometry
 
 # dlg ARGS...: dialog with the common options; result on stdout, exit status kept.
 dlg() {
@@ -25,7 +26,7 @@ dlg() {
 
 # ui_escape: after Esc, offer a shell; returns when the user comes back.
 ui_escape() {
-	if dlg --title "$T_ESC_TITLE" --yesno "$T_ESC_TEXT" 9 64; then
+	if dlg --title "$T_ESC_TITLE" --yesno "$T_ESC_TEXT" 9 "$UI_W_MED"; then
 		clear
 		printf '%s\n' "$T_SHELL_HINT"
 		log INFO "ui: user opened a shell"
@@ -36,7 +37,7 @@ ui_escape() {
 }
 
 ui_msg() { # ui_msg TITLE TEXT
-	dlg --title "$1" --msgbox "$2" 12 70
+	dlg --title "$1" --msgbox "$2" 12 "$UI_W_MED"
 	[ $? = 255 ] && ui_escape
 	return 0
 }
@@ -66,7 +67,7 @@ ui_scan() {
 	: >"$RETRO_RUN/scan.progress"
 	sh "$RETRO_HOME/20-scan.sh" >/dev/null 2>>"$RETRO_RUN/scan.err" &
 	_sp=$!
-	ui_scan_progress "$_sp" | dlg --title "$T_SCAN_TITLE" --gauge "$T_SCAN_START" 9 70 0
+	ui_scan_progress "$_sp" | dlg --title "$T_SCAN_TITLE" --gauge "$T_SCAN_START" 9 "$UI_W_MED" 0
 	wait "$_sp"
 	_rc=$?
 	rm -f "$CHECKED"
@@ -77,11 +78,12 @@ ui_scan() {
 
 # ui_checklist_items SCAN CHECKED: dialog --checklist items (tag, text, on|off), one per
 # line. CHECKED lists ticked group ids; when it does not exist the preselect column decides.
+# The name column is 32 wide on 80 columns and takes the extra width of a bigger screen.
 ui_checklist_items() {
 	_ck=$2
 	[ -e "$_ck" ] || _ck=/dev/null
 	LC_ALL=$UI_LOCALE gawk -F '\t' -v use_pre="$([ -e "$2" ] && echo 0 || echo 1)" \
-		-v cats="$T_CATEGORIES" '
+		-v cats="$T_CATEGORIES" -v namew="$((32 + ${UI_W_BIG:-76} - 76))" '
 		function human(n,    u, i) {
 			split("B KB MB GB TB", u, " "); i = 1
 			while (n >= 1024 && i < 5) { n /= 1024; i++ }
@@ -89,12 +91,12 @@ ui_checklist_items() {
 			return sprintf(n < 10 ? "%.1f %s" : "%.0f %s", n, u[i])
 		}
 		function fit(s, w) { return length(s) <= w ? s : substr(s, 1, w - 1) "~" }
-		BEGIN { n = split(cats, c, " "); for (i = 1; i <= n; i++) { split(c[i], kv, ":"); CN[kv[1]] = kv[2] } }
+		BEGIN { fmt = "%-5s %-" namew "s %-9s %6d %8s"; n = split(cats, c, " "); for (i = 1; i <= n; i++) { split(c[i], kv, ":"); CN[kv[1]] = kv[2] } }
 		FILENAME == ARGV[1] { ON[$1] = 1; next }
 		NF >= 10 {
 			dev = $2; sub(/^.*\//, "", dev)
 			cat = ($4 in CN) ? CN[$4] : $4
-			text = sprintf("%-5s %-32s %-9s %6d %8s", fit(dev, 5), fit($6, 32), fit(cat, 9), $8, human($9))
+			text = sprintf(fmt, fit(dev, 5), fit($6, namew), fit(cat, 9), $8, human($9))
 			on = use_pre ? ($10 == 1) : ($1 in ON)
 			print $1; print text; print (on ? "on" : "off")
 		}' "$_ck" "$1"
@@ -131,14 +133,14 @@ ui_details() {
 				for (i = 1; i <= n; i++) printf "%10.1f KB  %s\n", S[i] / 1024, (P[i] == "" ? "(this file)" : P[i])
 			}'
 	} >"$UI_TMP/details"
-	dlg --title "$T_DETAILS_TITLE" --exit-label OK --textbox "$UI_TMP/details" 22 76
+	dlg --title "$T_DETAILS_TITLE" --exit-label OK --textbox "$UI_TMP/details" "$UI_H_BIG" "$UI_W_BIG"
 	[ $? = 255 ] && ui_escape
 	return 0
 }
 
 # ui_menu: the Cancel button of the overview. Returns 0 to go back, 2 to rescan.
 ui_menu() {
-	_c=$(dlg --title "$T_MENU_TITLE" --no-tags --menu "" 14 60 6 \
+	_c=$(dlg --title "$T_MENU_TITLE" --no-tags --menu "" 14 "$UI_W_MED" 6 \
 		back "$T_MENU_BACK" rescan "$T_MENU_RESCAN" shell "$T_MENU_SHELL" log "$T_MENU_LOG" \
 		poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
 	_rc=$?
@@ -150,7 +152,7 @@ ui_menu() {
 		printf '%s\n' "$T_SHELL_HINT"
 		/bin/sh -i
 		;;
-	log) dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" 22 78 ;;
+	log) dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" "$UI_H_BIG" "$UI_W_BIG" ;;
 	poweroff | reboot) ui_power "$_c" ;;
 	esac
 	return 0
@@ -185,7 +187,7 @@ ui_overview() {
 		_out=$(dlg --title "$T_LIST_TITLE" --no-tags --separate-output --help-button \
 			--help-label "$T_LIST_DETAILS" --help-status --extra-button --extra-label "$T_LIST_ALL" \
 			--ok-label "$T_LIST_OK" --cancel-label "$T_LIST_MENU" ${UI_DEFAULT:+--default-item "$UI_DEFAULT"} \
-			--checklist "$T_LIST_TEXT" 23 78 15 "$@")
+			--checklist "$T_LIST_TEXT" "$UI_H_BIG" "$UI_W_BIG" "$UI_L_BIG" "$@")
 		_rc=$?
 		printf '%s\n' "$_out" >"$UI_TMP/out"
 		case $_rc in
@@ -289,7 +291,7 @@ ui_dest_disk() {
 			set -- "$@" "$_d" "$(printf '%-12s %9s  %-6s %s' "$_d" "$_s" "$_t" "$_l")"
 		done <"$UI_TMP/cands"
 		set -- "$@" refresh "$T_DEST_REFRESH"
-		_c=$(dlg --title "$T_DEST_TITLE" --no-tags --menu "$T_DEST_PICK" 18 72 9 "$@")
+		_c=$(dlg --title "$T_DEST_TITLE" --no-tags --menu "$T_DEST_PICK" "$UI_H_MED" "$UI_W_BIG" "$UI_L_MED" "$@")
 		_rc=$?
 		[ $_rc = 255 ] && { ui_escape; continue; }
 		[ $_rc = 0 ] || return 1
@@ -314,13 +316,13 @@ normalize_url() {
 }
 
 ui_dest_net() {
-	dlg --title "$T_DEST_TITLE" --infobox "$T_NET_WAIT" 5 64
+	dlg --title "$T_DEST_TITLE" --infobox "$T_NET_WAIT" 5 "$UI_W_MED"
 	if ! net_up; then
 		ui_msg "$T_DEST_TITLE" "$T_NET_NOADDR"
 	fi
 	_url=$(net_discover) || _url=
 	while [ -z "$_url" ]; do
-		_in=$(dlg --title "$T_DEST_TITLE" --inputbox "$T_NET_ASK" 12 70 "")
+		_in=$(dlg --title "$T_DEST_TITLE" --inputbox "$T_NET_ASK" 12 "$UI_W_MED" "")
 		_rc=$?
 		[ $_rc = 255 ] && { ui_escape; continue; }
 		[ $_rc = 0 ] || return 1
@@ -344,7 +346,7 @@ ui_dest() {
 		_rd=$(blk_label_dev RETRODATA)
 		[ -n "$_rd" ] && set -- usb "$T_DEST_RETRODATA"
 		set -- "$@" disk "$T_DEST_DISK" net "$T_DEST_NET" back "$T_DEST_BACK"
-		_c=$(dlg --title "$T_DEST_TITLE" --no-tags --menu "$T_DEST_TEXT" 13 70 4 "$@")
+		_c=$(dlg --title "$T_DEST_TITLE" --no-tags --menu "$T_DEST_TEXT" 13 "$UI_W_MED" 4 "$@")
 		_rc=$?
 		[ $_rc = 255 ] && { ui_escape; continue; }
 		[ $_rc = 0 ] || return 1
@@ -397,12 +399,12 @@ confirm_text() {
 }
 
 ui_confirm() {
-	dlg --title "$T_CONFIRM_TITLE" --infobox "$T_CONFIRM_PROBE" 5 64
+	dlg --title "$T_CONFIRM_TITLE" --infobox "$T_CONFIRM_PROBE" 5 "$UI_W_MED"
 	confirm_text >"$UI_TMP/confirm"
 	log INFO "ui: confirm: $(tr '\n' ' ' <"$UI_TMP/confirm")"
 	while :; do
 		dlg --title "$T_CONFIRM_TITLE" --yes-label "$T_CONFIRM_START" --no-label "$T_CONFIRM_BACK" \
-			--yesno "$(cat "$UI_TMP/confirm")" 14 70
+			--yesno "$(cat "$UI_TMP/confirm")" 14 "$UI_W_MED"
 		case $? in
 		0) return 0 ;;
 		255) ui_escape ;;
@@ -416,7 +418,7 @@ ui_confirm() {
 ui_copy() {
 	log INFO "ui: copy started"
 	RETRO_GAUGE=1 sh "$RETRO_HOME/40-copy.sh" 2>>"$RETRO_RUN/copy.err" |
-		dlg --title "$T_COPY_TITLE" --gauge "$T_COPY_START" 10 76 0
+		dlg --title "$T_COPY_TITLE" --gauge "$T_COPY_START" 10 "$UI_W_BIG" 0
 	return 0
 }
 
@@ -441,12 +443,12 @@ ui_summary() {
 	summary_text >"$UI_TMP/summary"
 	while :; do
 		_c=$(dlg --title "$T_SUM_TITLE" --no-tags --cancel-label "$T_MENU_LOG" \
-			--menu "$(cat "$UI_TMP/summary")" 22 76 4 more "$T_SUM_MORE" shell "$T_MENU_SHELL" \
+			--menu "$(cat "$UI_TMP/summary")" 22 "$UI_W_BIG" 4 more "$T_SUM_MORE" shell "$T_MENU_SHELL" \
 			poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
 		case $? in
 		0) ;;
 		1)
-			dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" 22 78
+			dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" "$UI_H_BIG" "$UI_W_BIG"
 			continue
 			;;
 		*)

@@ -45,10 +45,12 @@ BEACON_PID=
 
 ok() {
 	PASS=$((PASS + 1))
+	echo ok >>"$T/tally" # counted from the file at the end: several sections run in subshells
 	printf '  ok   %s\n' "$*"
 }
 fail() {
 	FAIL=$((FAIL + 1))
+	echo fail >>"$T/tally"
 	printf '  FAIL %s\n' "$*"
 }
 check() { # check DESCRIPTION COMMAND...
@@ -134,6 +136,22 @@ section units
 	eq "json.awk decodes \\u escapes" "$(sed -n 1p "$T/json.out")" "files.0.path${TAB}a/Jóska.txt"
 	eq "json.awk key order" "$(grep -c '^files\.1\.' "$T/json.out")" 3
 )
+# ui_geometry: dialog sizes follow the terminal (no tty here, so $LINES / $COLUMNS decide).
+geom() { # geom LINES COLUMNS ("-" for unset)
+	(
+		LINES=$1 COLUMNS=$2
+		[ "$1" = - ] && unset LINES COLUMNS TERM
+		. "$RETRO_HOME/lib/common.sh"
+		ui_geometry
+		echo "$UI_LINES $UI_COLS big $UI_H_BIG $UI_W_BIG $UI_L_BIG med $UI_H_MED $UI_W_MED $UI_L_MED"
+	) </dev/null 2>/dev/null
+}
+eq "ui_geometry 100x37 (800x600 framebuffer)" "$(geom 37 100)" "37 100 big 35 96 27 med 24 90 16"
+eq "ui_geometry 128x48 is capped" "$(geom 48 128)" "48 128 big 44 120 36 med 24 90 16"
+eq "ui_geometry 80x25 keeps the old sizes" "$(geom 25 80)" "25 80 big 23 76 15 med 18 70 10"
+eq "ui_geometry 80x24" "$(geom 24 80)" "24 80 big 22 76 14 med 17 70 9"
+eq "ui_geometry clamps to 80x24" "$(geom 10 40)" "24 80 big 22 76 14 med 17 70 9"
+eq "ui_geometry without any size source" "$(geom - -)" "24 80 big 22 76 14 med 17 70 9"
 
 # --------------------------------------------------------------------------- scan
 section scan
@@ -417,12 +435,14 @@ CK=$T/checked.none
 	ui_checklist_items "$S" "$CK" >"$T/items"
 	printf '%s\n%s\n' "$(gid /dev/sda1 Munka)" "$(gid /dev/sdd1 DCIM)" >"$T/checked"
 	ui_checklist_items "$S" "$T/checked" >"$T/items2"
+	UI_W_BIG=96 ui_checklist_items "$S" "$CK" >"$T/items3"
 )
 eq "checklist items: 3 lines per group" "$(grep -c '' "$T/items")" $(($(grep -c '' "$S") * 3))
 eq "checklist status column is on/off" "$(awk 'NR % 3 == 0 && $0 != "on" && $0 != "off"' "$T/items" | wc -l)" 0
 eq "checklist: preselect column honoured" "$(awk 'NR % 3 == 1 { t = $0 } NR % 3 == 0 && $0 == "on" { print t }' "$T/items" | tr '\n' ' ')" "$(awk -F '\t' '$10 == 1 { printf "%s ", $1 }' "$S")"
 eq "checklist: ticked set overrides preselect" "$(awk 'NR % 3 == 1 { t = $0 } NR % 3 == 0 && $0 == "on" { print t }' "$T/items2" | tr '\n' ' ')" "$(tr '\n' ' ' <"$T/checked")"
 eq "checklist text fits 66 columns" "$(awk 'NR % 3 == 2' "$T/items" | LC_ALL=C.UTF-8 gawk 'length($0) > 66' | wc -l)" 0
+eq "checklist text on 100 columns: name column 20 wider" "$(awk 'NR % 3 == 2' "$T/items3" | LC_ALL=C.UTF-8 gawk 'length($0) > m { m = length($0) } END { print m }')" 84
 # Real dialog in a pseudo-terminal: Enter must return exactly the preselected tags,
 # Details (help button) must return "HELP <tag>" followed by the ticked tags.
 cat >"$T/run-dialog.py" <<'EOF'
@@ -431,6 +451,10 @@ keys = [k.encode().decode('unicode_escape').encode() for k in sys.argv[1].split(
 args = sys.argv[2:]
 pid, fd = pty.fork()
 if pid == 0:
+    if os.environ.get('PTY_SIZE'):
+        import fcntl, struct, termios
+        rows, cols = (int(v) for v in os.environ['PTY_SIZE'].split('x'))
+        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
     os.environ['TERM'] = 'xterm'
     os.environ['LC_ALL'] = 'C.UTF-8'
     out = os.open(os.environ['OUTFILE'], os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
@@ -467,6 +491,15 @@ RC=$(OUTFILE=$T/dlg.out python3 "$T/run-dialog.py" '\x1bOB| |\t|\t|\t|\r' $OPTS 
 eq "real dialog: Details button exit status" "$RC" 2
 eq "real dialog: Details output starts with HELP <highlighted tag>" "$(head -n 1 "$T/dlg.out")" "HELP g0002"
 eq "real dialog: Details output then lists the ticked tags (g0002 unticked by space)" "$(sed 1d "$T/dlg.out" | tr '\n' ' ')" "$(awk -F '\t' '$10 == 1 && $1 != "g0002" { printf "%s ", $1 }' "$S")"
+# The same with the sizes ui_geometry gives on 80x24 and on a 100x37 framebuffer console.
+# shellcheck disable=SC2086
+RC=$(PTY_SIZE=24x80 OUTFILE=$T/dlg.out python3 "$T/run-dialog.py" '\r' $OPTS --checklist "$T_LIST_TEXT" 22 76 14 "$@")
+eq "real dialog on 80x24 with the ui_geometry sizes" "$RC $(tr '\n' ' ' <"$T/dlg.out")" "0 $(awk -F '\t' '$10 == 1 { printf "%s ", $1 }' "$S")"
+set --
+while IFS= read -r l; do set -- "$@" "$l"; done <"$T/items3"
+# shellcheck disable=SC2086
+RC=$(PTY_SIZE=37x100 OUTFILE=$T/dlg.out python3 "$T/run-dialog.py" '\r' $OPTS --checklist "$T_LIST_TEXT" 35 96 27 "$@")
+eq "real dialog on 100x37 with the ui_geometry sizes" "$RC $(tr '\n' ' ' <"$T/dlg.out")" "0 $(awk -F '\t' '$10 == 1 { printf "%s ", $1 }' "$S")"
 
 # UI flow with the stub: scan gauge, then details, all/none, select, net destination,
 # confirm, copy gauge, summary -> power off (disabled).
@@ -541,5 +574,7 @@ for a in range(5000):
 fi
 
 # --------------------------------------------------------------------------- done
+PASS=$(grep -c "^ok" "$T/tally" 2>/dev/null || echo 0)
+FAIL=$(grep -c "^fail" "$T/tally" 2>/dev/null || echo 0)
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]
