@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl ca-certificates cpio gzip xz-utils squashfs-tools \
         syslinux syslinux-common isolinux syslinux-utils \
-        mtools dosfstools exfatprogs util-linux fdisk xorriso kmod file pxelinux \
+        mtools dosfstools exfatprogs util-linux fdisk xorriso kmod file pxelinux console-setup-linux \
         unzip fakeroot binutils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src

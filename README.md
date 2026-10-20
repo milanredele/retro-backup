@@ -52,7 +52,8 @@ direct-cable mode.
 folder (documents, pictures, email stores, and "hot folders" found by scanning the whole disk
 for media and documents), then a destination choice, a space check and the copy with progress.
 A manifest with md5 sums and a log are written next to the copies. Esc drops to a shell; tty2 is a
-root shell, tty3 is Midnight Commander.
+root shell, tty3 is Midnight Commander. The console runs at 800x600 (VESA framebuffer, works on
+any 2000s graphics card) with a Latin-2 font; the "safe" boot entry keeps plain 80x25 VGA text.
 
 ## Status
 

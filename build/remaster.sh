@@ -345,6 +345,7 @@ fi
     echo '::sysinit:/sbin/ldconfig'
     [ -n "$BOOTHOOK" ] && echo "::sysinit:$BOOTHOOK"
     echo '::sysinit:/etc/init.d/rcS'
+    echo '::sysinit:/sbin/retro-console'
     echo
     echo 'tty1::respawn:/sbin/retro-tty1'
     echo 'tty2::respawn:/sbin/retro-tty2'
@@ -383,7 +384,37 @@ mkdir -p "$W/etc/sysconfig" && touch "$W/etc/sysconfig/superuser"
 # Keyboard: tc-config defaults to KEYMAP=us (and the kernel's built-in map is US); record it.
 mkdir -p "$W/etc/sysconfig"
 echo KEYMAP=us >"$W/etc/sysconfig/keymap"
-# Console font: kernel default (nothing to do; no setfont call anywhere).
+# Console font: Lat2-Terminus16 (8x16, 256 glyphs, Unicode table; Debian console-setup-linux)
+# so Central European names render on the framebuffer console. Loaded at sysinit by
+# /sbin/retro-console with busybox loadfont (reads the PSF from stdin, applies to the VT console).
+FONT_SRC=/usr/share/consolefonts/Lat2-Terminus16.psf.gz
+if [ -f "$FONT_SRC" ]; then
+    mkdir -p "$W/usr/share/consolefonts"
+    cp "$FONT_SRC" "$W/usr/share/consolefonts/"
+else
+    say "WARNING: $FONT_SRC missing in the builder (console-setup-linux); console keeps the kernel font"
+fi
+# UTF-8 locale: Tiny Core ships no locale data at all, so dialog, gawk and ncursesw fall back to
+# the C locale and drop every non-ASCII character. glibc 2.35+ reads the C.utf8 directory that
+# Debian's libc-bin ships (400 KB); its file format is architecture independent and verified
+# to work with Tiny Core's i386 glibc 2.40 (gawk length("ó") == 1 under LC_ALL=C.UTF-8).
+LOC_SRC=/usr/lib/locale/C.utf8
+if [ -d "$LOC_SRC" ]; then
+    mkdir -p "$W/usr/lib/locale"
+    cp -r "$LOC_SRC" "$W/usr/lib/locale/"
+else
+    say "WARNING: $LOC_SRC missing in the builder; the UI will not show accented characters"
+fi
+cat >"$W/sbin/retro-console" <<'EOF'
+#!/bin/sh
+# sysinit: console font with Latin-2 glyphs (fbcon and vgacon both accept 8x16 x 256 fonts).
+F=/usr/share/consolefonts/Lat2-Terminus16.psf.gz
+if [ -r "$F" ] && command -v loadfont >/dev/null 2>&1; then
+    zcat "$F" | loadfont 2>/dev/null || echo "retro-console: loadfont failed, keeping the kernel font"
+fi
+exit 0
+EOF
+chmod 0755 "$W/sbin/retro-console"
 
 # ---------------------------------------------------------------------------------------------
 # 10. Repack.

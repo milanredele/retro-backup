@@ -11,7 +11,9 @@ TMP=${TMP:-/tmp/retro-image}
 IMG_MIB=${IMG_MIB:-1024}
 P1_START=2048         # sectors (1 MiB)
 P1_MIB=256
-CMDLINE="quiet nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs"
+CMDLINE="quiet nomodeset norestore noswap nodhcp base rootfstype=ramfs vt.default_utf8=1"
+VGA_FB="vga=788"       # 800x600x16 VESA framebuffer console (100x37 characters)
+VGA_TEXT="vga=normal"  # plain 80x25 text mode for the safe entry
 
 say() { printf '%s\n' "image: $*" >&2; }
 die() { say "ERROR: $*"; exit 1; }
@@ -62,17 +64,17 @@ MENU TITLE retro-backup: copy user data off this PC
 LABEL retro
   MENU LABEL ^retro-backup
   KERNEL vmlinuz
-  APPEND initrd=retro.gz $CMDLINE retro.boot=$1
+  APPEND initrd=retro.gz $CMDLINE $VGA_FB retro.boot=$1
 
 LABEL safe
-  MENU LABEL retro-backup (^safe mode: no ACPI/APIC)
+  MENU LABEL retro-backup (^safe mode: plain VGA text, no ACPI/APIC)
   KERNEL vmlinuz
-  APPEND initrd=retro.gz $CMDLINE retro.boot=$1 acpi=off noapic nolapic
+  APPEND initrd=retro.gz $CMDLINE $VGA_TEXT retro.boot=$1 acpi=off noapic nolapic
 
 LABEL serial
   MENU LABEL retro-backup (seria^l console, debug)
   KERNEL vmlinuz
-  APPEND initrd=retro.gz nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs retro.boot=$1 console=tty0 console=ttyS0,115200 retro.debug=1
+  APPEND initrd=retro.gz nomodeset $VGA_TEXT norestore noswap nodhcp base rootfstype=ramfs vt.default_utf8=1 retro.boot=$1 console=tty0 console=ttyS0,115200 retro.debug=1
 EOF
     if [ -n "$PLOP" ]; then
         cat <<EOF

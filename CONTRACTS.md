@@ -23,6 +23,10 @@ interface here first, then in the code. Reference: PLAN.md.
   tty2 runs a root shell, tty3 a root shell with `mc`. The client never relies on Tiny Core's
   `bootlocal.sh`, `tc` user, or tce loading. Boot codes used: `base norestore noswap nodhcp`.
 - The whole system runs from RAM; the client may write freely to `/tmp` and `/run/retro`.
+- A `C.UTF-8` locale is installed (`/usr/lib/locale/C.utf8`, copied from Debian's libc-bin at build
+  time) and the console font has Latin-2 glyphs, so the UI runs dialog and gawk with
+  `LC_ALL=C.UTF-8` and non-ASCII file names display correctly. The default console is the
+  800x600 VESA framebuffer (100x37 characters); the UI sizes its boxes from the terminal size.
 - Kernel command line parameters understood by the client (all optional):
   - `retro.dest=http://IP:8080` helper URL (set by the helper's generated pxelinux config)
   - `retro.debug=1` verbose logging to `/run/retro/debug.log` and tty4
@@ -102,7 +106,8 @@ BACKUP/<machine>/scan.tsv                       copy of the scan result
 - TFTP root = HTTP root `/boot/`: `lpxelinux.0`, `ldlinux.c32`, `libcom32.c32`, `libutil.c32`,
   `menu.c32`, `vmlinuz`, `retro.gz`, `pxelinux.cfg/default` (generated at start-up with the
   helper's IP: kernel `http://IP:8080/boot/vmlinuz`, `APPEND initrd=http://IP:8080/boot/retro.gz
-  quiet nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=http://IP:8080`).
+  quiet nomodeset vga=788 vt.default_utf8=1 norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe
+  retro.dest=http://IP:8080`).
 - The build copies the boot files into `helper/bootfiles/` before `go build`; the helper embeds
   whatever is in that directory. With only the placeholder README present the helper still builds
   and runs (receiver and beacon work; PXE requests get 404 and a clear log line).
@@ -114,8 +119,11 @@ MBR with syslinux `mbr.bin`, DOS partition table. p1: FAT32, 256 MiB, type 0x0C,
 `README.txt`. p2: exFAT, label `RETRODATA`, fills the rest (image ships at 1 GiB total; `flash.sh`
 grows p2 to the stick on Linux). On first boot the client (`05-stick.sh`) grows p2 to the end
 of the stick itself when it is still empty, so a stick flashed from macOS or Windows is fully
-usable too; `retro.nogrow=1` disables that. syslinux.cfg `APPEND initrd=retro.gz quiet nomodeset vga=normal norestore
-noswap nodhcp base rootfstype=ramfs retro.boot=usb`, plus a second entry `safe` adding `acpi=off noapic nolapic`.
+usable too; `retro.nogrow=1` disables that. syslinux.cfg `APPEND initrd=retro.gz quiet nomodeset vga=788 vt.default_utf8=1 norestore
+noswap nodhcp base rootfstype=ramfs retro.boot=usb`, plus a second entry `safe` with `vga=normal acpi=off
+noapic nolapic`. `vga=788` is the 800x600 VESA framebuffer console (100x37 characters); the
+build loads the Latin-2 Terminus console font (`Lat2-Terminus16.psf.gz`, with Unicode table) at
+boot so Central European file names render; `vt.default_utf8=1` keeps the console in UTF-8.
 `rootfstype=ramfs` is mandatory on every boot line: without it the kernel caps the unpacked
 initramfs at half of RAM and machines with less than 192 MB lose the tail of the archive.
 `out/retro.iso` is the same payload with isolinux for CD-only machines.

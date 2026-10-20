@@ -19,7 +19,7 @@ func TestPXEConfigAndBootHTTP(t *testing.T) {
 	cfg := string(b.config)
 	for _, want := range []string{
 		"KERNEL http://192.168.1.23:8080/boot/vmlinuz\n",
-		"APPEND initrd=http://192.168.1.23:8080/boot/retro.gz quiet nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=http://192.168.1.23:8080\n",
+		"APPEND initrd=http://192.168.1.23:8080/boot/retro.gz quiet nomodeset vga=788 vt.default_utf8=1 norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=http://192.168.1.23:8080\n",
 	} {
 		if !strings.Contains(cfg, want) {
 			t.Errorf("config lacks %q:\n%s", want, cfg)

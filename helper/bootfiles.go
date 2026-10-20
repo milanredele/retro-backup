@@ -32,10 +32,10 @@ TIMEOUT 50
 SAY retro-backup: booting in 5 s. Type "safe" + Enter for acpi=off noapic nolapic.
 LABEL retro
   KERNEL %[1]s/boot/vmlinuz
-  APPEND initrd=%[1]s/boot/retro.gz quiet nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=%[1]s
+  APPEND initrd=%[1]s/boot/retro.gz quiet nomodeset vga=788 vt.default_utf8=1 norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=%[1]s
 LABEL safe
   KERNEL %[1]s/boot/vmlinuz
-  APPEND initrd=%[1]s/boot/retro.gz quiet nomodeset vga=normal norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=%[1]s acpi=off noapic nolapic
+  APPEND initrd=%[1]s/boot/retro.gz quiet nomodeset vga=normal vt.default_utf8=1 norestore noswap nodhcp base rootfstype=ramfs retro.boot=pxe retro.dest=%[1]s acpi=off noapic nolapic
 `
 
 // bootFiles serves the TFTP root, which is also HTTP /boot/.
