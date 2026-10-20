@@ -59,3 +59,7 @@ victim:
 
 test-e2e:
 	sh test/e2e-qemu.sh $(QEMU_ARGS)
+
+# Screenshots of the UI on the VESA console (QEMU, out/shot-*.png).
+screenshot:
+	sh test/screenshot-qemu.sh $(QEMU_ARGS)
