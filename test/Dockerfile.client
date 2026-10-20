@@ -1,0 +1,12 @@
+# Test image for the client scripts (rootfs/opt/retro). Native arm64 on Apple silicon.
+# /bin/sh is busybox ash, as on Tiny Core; GNU tools come from apk like the tcz extensions.
+# GNU tar is deliberately NOT installed: Tiny Core has only busybox tar, so the client must
+# work with it. The net test also checks the stream with python3's tarfile.
+# sfdisk/dosfstools/e2fsprogs/exfatprogs only build the loop-device disks of
+# test/devices-test.sh (run with --privileged).
+FROM alpine:3.21
+RUN apk add --no-cache findutils gawk dialog ncurses ncurses-terminfo-base coreutils rsync \
+        curl util-linux blkid file grep sed python3 shellcheck pv \
+        sfdisk dosfstools e2fsprogs exfatprogs
+WORKDIR /src
+CMD ["/bin/sh"]
