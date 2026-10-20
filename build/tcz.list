@@ -1,0 +1,53 @@
+# Tiny Core 16.x x86 extensions unpacked into the initramfs (one per line, no .tcz).
+# "KERNEL" in .dep files is replaced with the kernel version by fetch.sh.
+# --- required by CONTRACTS.md section 1 ---
+ntfs-3g
+rsync
+dialog
+ncursesw
+ncursesw-terminfo
+exfatprogs
+lvm2
+mdadm
+testdisk
+ddrescue
+pv
+mc
+ncdu
+findutils
+coreutils
+file
+gawk
+sed
+grep
+util-linux
+hdparm
+smartmontools
+curl
+filesystems-6.12.11-tinycore
+kmaps
+glibc_gconv
+# --- .dep closure of the above (resolved by fetch.sh on 2026-10-20) ---
+popt
+ncursesw-utils
+raid-dm-6.12.11-tinycore
+liblvm2
+readline7
+glib2
+libssh2
+slang
+gpm
+gmp
+liblzma
+bzip2-lib
+libzstd
+mpfr
+readline
+udev-lib
+ca-certificates
+mtd-6.12.11-tinycore
+libffi
+pcre21042
+openssl
+pcre
+gcc_libs
