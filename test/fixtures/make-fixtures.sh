@@ -213,6 +213,11 @@ for i in 1 2 3; do
 	mk "camera/DCIM/100CANON/MVI_000$i.MOV" $((100000 + RND)) plain cam_dcim
 done
 photos "camera/DCIM/101CANON" 10 "IMG_1" JPG cam_dcim
+# Raw formats, upper case as cameras write them: must be classified as photos too.
+for f in IMG_0041.CR2 DSC_0001.NEF P1010001.RW2; do
+	rnd 300000
+	mk "camera/DCIM/101CANON/$f" $((200000 + RND)) plain cam_dcim
+done
 small "camera/MISC/AUTPRINT.MRK"
 
 # ------------------------------------------------------------------ expectations

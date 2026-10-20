@@ -58,7 +58,7 @@ chk os_hints "$(cut -f6 $R/volumes.tsv | sort | tr "\n" ,)" "data,linux,win7,win
 chk grown "$(awk -v s="$(cat /sys/class/block/sda2/size)" "BEGIN{print (s > 3145728) ? 1 : 0}")" 1
 chk fs_ntfs "$(cut -f2 $R/volumes.tsv | grep -c ntfs)" 2
 chk fotok "$(awk -F"\t" "\$7==\"Fotók 2007\"{print \$8}" $R/scan.tsv)" 60
-chk dcim "$(awk -F"\t" "\$7 ~ /DCIM/{s+=\$8} END{print s+0}" $R/scan.tsv)" 53
+chk dcim "$(awk -F"\t" "\$7 ~ /DCIM/{s+=\$8} END{print s+0}" $R/scan.tsv)" 56
 chk oe "$(awk -F"\t" "\$4==\"email\" && \$7 ~ /Outlook Express/{print \$8}" $R/scan.tsv)" 5
 chk tb7 "$(awk -F"\t" "\$4==\"email\" && \$7 ~ /Roaming\/Thunderbird/{print \$8}" $R/scan.tsv)" 5
 chk maildir "$(awk -F"\t" "\$4==\"email\" && \$7 ~ /Maildir/{print \$8}" $R/scan.tsv)" 4

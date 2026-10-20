@@ -206,7 +206,7 @@ group /dev/sdc1 "home/milan/Maildir" A email 4 1 l_maildir
 group /dev/sdc1 "home/milan/.mozilla/firefox" A other 1 1 l_ff
 group /dev/sdc1 "var/mail/milan" A email 1 1 l_mbox
 group /dev/sdc1 "srv/zene" B music 3 0 l_zene
-group /dev/sdd1 "DCIM" B photos 53 0 cam_dcim
+group /dev/sdd1 "DCIM" B photos 56 0 cam_dcim
 eq "labels: Outlook Express" "$(row /dev/sda1 "$OEP" | cut -f6)" "Jóska / Outlook Express mail"
 eq "labels: Windows.old" "$(row /dev/sdb1 "Windows.old/Users/Old/Documents" | cut -f6)" "Windows.old / Old / Documents"
 eq "labels: sweep with drive letter" "$(row /dev/sda1 "Fotók 2007" | cut -f6)" 'C:\Fotók 2007'
