@@ -219,7 +219,7 @@ EOF_ROW
 	if have rsync && [ -s "$CP_TMP/list.same" ]; then
 		awk -F '\t' '{ print $3 }' "$CP_TMP/list.same" | tr '\n' '\0' >"$CP_TMP/list0"
 		{
-			rsync -t --modify-window=2 --no-perms --no-owner --no-group --partial \
+			rsync -t --modify-window=2 --no-perms --no-owner --no-group --partial -8 \
 				--ignore-errors --info=progress2 --out-format='%n' --from0 \
 				--files-from="$CP_TMP/list0" "$_mnt/" "$_vd/" </dev/null 2>"$CP_TMP/rsync.err"
 			echo $? >"$CP_TMP/rsync.rc"

@@ -268,7 +268,7 @@ ui_overview() {
 			fi
 			;;
 		1)
-			ui_set_checked "$UI_TMP/out"
+			# Cancel (the Menu button) prints no state: keep the ticks as they were last saved.
 			ui_menu
 			[ $? = 2 ] && return 2
 			;;
