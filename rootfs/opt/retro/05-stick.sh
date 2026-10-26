@@ -93,18 +93,20 @@ if [ "$FORCE" = 0 ]; then
 		exit 0
 	fi
 	entries=
+	ignored=
 	n=0
 	for _e in "$M"/* "$M"/.[!.]* "$M"/..?*; do
 		[ -e "$_e" ] || continue
 		_b=$(basename "$_e")
 		if ignorable "$_b"; then
-			log DEBUG "stick: ignoring OS entry '$_b' on RETRODATA"
+			ignored="${ignored:+$ignored, }$_b"
 			continue
 		fi
 		n=$((n + 1))
 		[ $n -le 5 ] && entries="${entries:+$entries,}$_b"
 	done
 	umount "$M"
+	log INFO "stick: content check of $P2: $n user entries, OS entries ignored: ${ignored:-none}"
 	if [ "$n" -gt 0 ]; then
 		log WARN "stick: RETRODATA ($part_mib MiB of $disk_mib MiB) holds data ($entries), not growing; the UI offers to extend it"
 		status "skipped-data $part_mib $disk_mib $entries"
@@ -112,7 +114,7 @@ if [ "$FORCE" = 0 ]; then
 	fi
 fi
 
-log INFO "stick: growing RETRODATA on $DISK from $part_mib MiB towards $disk_mib MiB${FORCE:+ (forced)}"
+log INFO "stick: growing RETRODATA on $DISK from $part_mib MiB towards $disk_mib MiB$([ "$FORCE" = 1 ] && echo " (forced)")"
 if ! echo ', +' | sfdisk -q --no-reread -N 2 "$DISK" 2>>"$RETRO_LOG"; then
 	log ERROR "stick: sfdisk failed, RETRODATA unchanged"
 	status "error sfdisk failed"

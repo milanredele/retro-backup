@@ -34,6 +34,7 @@ FIFO=$WORK/in; mkfifo "$FIFO"; : >"$LOG"
 # (no snapshot) so a stray write would show up in the hash check.
 cp "$OUT/retro-backup.img" "$WORK/stick.img"
 truncate -s 2G "$WORK/stick.img"   # bigger than the image: first boot must grow RETRODATA
+sh "$HERE/victim/dirty-stick.sh" "$WORK/stick.img" >/dev/null   # macOS/Windows droppings must not block the growth
 "$QEMU" -cpu "$CPU" -m "$MEM" -M pc \
     -drive file="$WORK/stick.img",format=raw,if=ide,index=0 \
     -drive file="$VICTIM",format=raw,if=ide,index=1 \
@@ -56,7 +57,8 @@ chk() { if [ "$2" = "$3" ]; then echo "CHECK $1 OK"; else echo "CHECK $1 FAIL (g
 chk volumes "$(wc -l < $R/volumes.tsv)" 4
 chk os_hints "$(cut -f6 $R/volumes.tsv | sort | tr "\n" ,)" "data,linux,win7,winxp,"
 chk grown "$(awk -v s="$(cat /sys/class/block/sda2/size)" "BEGIN{print (s > 3145728) ? 1 : 0}")" 1
-chk droppings_ignored "$(grep -c "ignoring OS entry" $R/retro-backup.log)" 5
+echo "=== stick log"; grep "stick:" $R/retro-backup.log
+chk droppings_ignored "$(grep -o "OS entries ignored: .*" $R/retro-backup.log | grep -c "fseventsd.*System Volume Information\|System Volume Information.*fseventsd")" 1
 chk stick_status "$(cut -d" " -f1 $R/stick.status)" grown
 chk fs_ntfs "$(cut -f2 $R/volumes.tsv | grep -c ntfs)" 2
 chk fotok "$(awk -F"\t" "\$7==\"Fotók 2007\"{print \$8}" $R/scan.tsv)" 60
