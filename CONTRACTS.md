@@ -66,6 +66,11 @@ g0003     /dev/sda1  B     photos     -       D:\Fotók 2007                  Fo
 
 `selection.txt`: one `group_id` per line, written by the UI, read by the copy stage.
 `dest.conf`: `type=usb|disk|net`, `path=/mnt/dst` (usb/disk) or `url=http://IP:8080` (net).
+`stick.status`: outcome of the first-boot growth of RETRODATA (`05-stick.sh`), one line:
+`grown OLD_MIB NEW_MIB` | `full` | `skipped-data PART_MIB DISK_MIB ENTRIES` | `skipped-mounted` |
+`error TEXT` | `disabled` | `none`. OS droppings (`.fseventsd`, `.Spotlight-V100`, `.Trashes`,
+`System Volume Information`, ...) never count as data; the UI offers `05-stick.sh --force` on
+`skipped-data`.
 
 ## 3. Destination layout (identical on a USB target and on the helper)
 

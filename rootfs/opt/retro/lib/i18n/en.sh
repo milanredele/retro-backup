@@ -1,7 +1,8 @@
 #!/bin/sh
 # English UI strings. Another language: copy this file to lib/i18n/<lang>.sh, translate the
 # values and boot with retro.lang=<lang>. Keep the variable names; "\n" is a line break in
-# dialog texts. Sourced by lib/common.sh.
+# dialog texts; "%s" is a value filled in by the script (printf), keep their number and
+# order. Sourced by lib/common.sh.
 # shellcheck disable=SC2034
 
 T_BACKTITLE="retro-backup: rescue the files of an old PC (sources are read-only)"
@@ -45,6 +46,7 @@ T_MENU_BACK="Back to the list"
 T_MENU_RESCAN="Scan the disks again"
 T_MENU_SHELL="Open a shell (type exit to come back)"
 T_MENU_LOG="Show the log"
+T_MENU_BROWSE="Browse the PC's files and copy by hand (Midnight Commander)"
 T_MENU_POWEROFF="Power off"
 T_MENU_REBOOT="Reboot"
 
@@ -56,12 +58,18 @@ T_DEST_DISK="Another USB disk or pendrive"
 T_DEST_NET="Over the network to a computer running retro-helper"
 T_DEST_BACK="Back to the list"
 T_DEST_FREE="free"
+T_DEST_NOT_EXTENDED="(%s, not extended)"
 T_DEST_PLUG="Plug in the USB disk now and wait 5 seconds, then press Enter."
 T_DEST_PICK="Choose the disk to write to. Nothing will be deleted or formatted; the files go into a BACKUP folder."
 T_DEST_REFRESH="(look again)"
 T_DEST_NONE="No new disk found. Plug it in, wait a few seconds and choose \"look again\"."
 T_DEST_MOUNT_FAILED="The disk could not be opened for writing:"
 T_DEST_NTFS_HINT="An NTFS disk that Windows did not shut down cleanly (or that is hibernated) cannot be written. Use an exFAT or FAT32 disk, or the network."
+T_EXTEND_TITLE="Extend the pendrive's data partition?"
+T_EXTEND_TEXT="The pendrive's data partition is only %s of the %s stick. It was not extended because it holds: %s.\n\nExtend it now? This erases those files (your earlier backups on it would be lost!)"
+T_EXTEND_WAIT="Extending the data partition to the whole stick..."
+T_EXTEND_DONE="The data partition now uses the whole stick: %s."
+T_EXTEND_FAILED="The data partition could not be extended:\n%s\n\nThe files go onto the small partition."
 T_NET_WAIT="Connecting to the network (DHCP) and looking for retro-helper..."
 T_NET_NOADDR="No network address. Is the cable plugged in? Is there a router, or does retro-helper run in direct-cable mode?"
 T_NET_ASK="retro-helper was not found automatically.\n\nType the address it shows on its screen (for example 192.168.1.23 or http://192.168.1.23:8080):"
@@ -103,6 +111,13 @@ T_SUM_LOG="Log and list of files"
 T_SUM_SAFE="The disk has been unmounted: it is safe to remove it."
 T_SUM_NOTSAFE="The disk is still mounted; power off from this menu before removing it."
 T_SUM_MORE="Copy more (back to the list)"
+
+# Browse and copy by hand (Midnight Commander)
+T_BROWSE_TITLE="Copy by hand"
+T_BROWSE_NO_NET="Manual copying works only onto the pendrive or a USB disk, not over the network."
+T_BROWSE_HINT="Midnight Commander opens with two panels:\n  left  = this PC (read-only: nothing on it can be changed or deleted)\n  right = the destination folder %s\n\nTab switches panels, F5 copies the highlighted (or Insert-marked) files to the other panel, F10 quits and returns to retro-backup."
+T_BROWSE_FAILED="The folder for manual copies could not be created:"
+T_SUM_MANUAL="Copied by hand (Midnight Commander)"
 
 # Escape / shell
 T_ESC_TITLE="Leave the menu?"

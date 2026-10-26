@@ -2,7 +2,8 @@
 # 30-ui.sh: the dialog screens (PLAN.md 6.2).
 #   30-ui.sh scan   scanning gauge (runs 20-scan.sh)
 #   30-ui.sh main   overview checklist -> details / menu -> destination -> confirm (with a
-#                   10 s speed probe) -> copy gauge (40-copy.sh) -> summary
+#                   10 s speed probe) -> copy gauge (40-copy.sh) -> summary. The menu and
+#                   the summary also offer copying by hand with Midnight Commander.
 # Writes selection.txt and dest.conf (CONTRACTS.md section 2). Esc on any screen asks, then
 # opens a shell; "exit" returns to the screen. DIALOG overrides the dialog binary (tests).
 # shellcheck source=lib/common.sh
@@ -40,6 +41,14 @@ ui_msg() { # ui_msg TITLE TEXT
 	dlg --title "$1" --msgbox "$2" 12 "$UI_W_MED"
 	[ $? = 255 ] && ui_escape
 	return 0
+}
+
+# fmt FORMAT ARGS...: a T_ string with %s placeholders filled in (lib/i18n/en.sh).
+fmt() {
+	_fmt=$1
+	shift
+	# shellcheck disable=SC2059 # the format is a translated string by design
+	printf "$_fmt" "$@"
 }
 
 # --------------------------------------------------------------------------- scanning
@@ -140,13 +149,14 @@ ui_details() {
 
 # ui_menu: the Cancel button of the overview. Returns 0 to go back, 2 to rescan.
 ui_menu() {
-	_c=$(dlg --title "$T_MENU_TITLE" --no-tags --menu "" 14 "$UI_W_MED" 6 \
-		back "$T_MENU_BACK" rescan "$T_MENU_RESCAN" shell "$T_MENU_SHELL" log "$T_MENU_LOG" \
-		poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
+	_c=$(dlg --title "$T_MENU_TITLE" --no-tags --menu "" 15 "$UI_W_MED" 7 \
+		back "$T_MENU_BACK" rescan "$T_MENU_RESCAN" browse "$T_MENU_BROWSE" shell "$T_MENU_SHELL" \
+		log "$T_MENU_LOG" poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
 	_rc=$?
 	[ $_rc = 255 ] && { ui_escape; return 0; }
 	case $_c in
 	rescan) return 2 ;;
+	browse) ui_browse ;;
 	shell)
 		clear
 		printf '%s\n' "$T_SHELL_HINT"
@@ -155,6 +165,47 @@ ui_menu() {
 	log) dlg --title "$T_MENU_LOG" --textbox "$RETRO_LOG" "$UI_H_BIG" "$UI_W_BIG" ;;
 	poweroff | reboot) ui_power "$_c" ;;
 	esac
+	return 0
+}
+
+# ui_browse: "copy by hand". Midnight Commander with the read-only sources in the left panel
+# and BACKUP/<machine>/manual on a usb/disk destination in the right one (the destination
+# chooser runs first when none is mounted). The result goes to the log and to manual.result
+# (for the summary).
+ui_browse() {
+	case $(dest_conf type) in
+	usb | disk) is_mountpoint "$(dest_conf path)" || ui_dest local || return 0 ;;
+	*) ui_dest local || return 0 ;;
+	esac
+	case $(dest_conf type) in
+	usb | disk) ;;
+	*)
+		ui_msg "$T_BROWSE_TITLE" "$T_BROWSE_NO_NET"
+		return 0
+		;;
+	esac
+	_bm=$(machine_name)
+	_bdir=$(dest_conf path)/BACKUP/$_bm/manual
+	if ! mkdir -p "$_bdir" 2>"$UI_TMP/browse.err"; then
+		log ERROR "ui: cannot create $_bdir: $(tail -n 1 "$UI_TMP/browse.err")"
+		ui_msg "$T_BROWSE_TITLE" "$T_BROWSE_FAILED $_bdir\n$(tail -n 1 "$UI_TMP/browse.err")"
+		return 0
+	fi
+	dlg --title "$T_BROWSE_TITLE" --msgbox "$(fmt "$T_BROWSE_HINT" "BACKUP/$_bm/manual")" 15 "$UI_W_MED"
+	[ $? = 255 ] && return 0
+	log INFO "ui: manual copy session started: $RETRO_SRC_ROOT -> $_bdir"
+	clear
+	# -u: no subshell (slow to start, useless here). The left panel is the active one.
+	LC_ALL=C.UTF-8 TERM=linux mc -u "$RETRO_SRC_ROOT" "$_bdir"
+	_brc=$?
+	clear
+	sync
+	# Files and their total size (apparent, as in copy.result; du would count blocks).
+	find "$_bdir" -type f -printf '%s\n' 2>/dev/null |
+		awk '{ s += $1 } END { printf "%d %.0f\n", NR, s }' >"$UI_TMP/browse.sum"
+	read -r _bn _bb <"$UI_TMP/browse.sum"
+	log INFO "ui: manual copy session ended (mc exit $_brc): $_bn files, $(human_bytes "$_bb") in $_bdir"
+	printf 'files=%s\nbytes=%s\npath=BACKUP/%s/manual\n' "$_bn" "$_bb" "$_bm" >"$RETRO_RUN/manual.result"
 	return 0
 }
 
@@ -339,12 +390,74 @@ ui_dest_net() {
 	return 0
 }
 
-# ui_dest: returns 0 with dest.conf written, 1 to go back to the list.
+# stick_status: the line 05-stick.sh left in stick.status ("none" when there is none).
+stick_status() {
+	_ss=$(head -n 1 "$RETRO_RUN/stick.status" 2>/dev/null)
+	printf '%s\n' "${_ss:-none}"
+}
+
+# human_mib N: N MiB in human_bytes form (beyond 2^31 bytes on a 32-bit shell).
+human_mib() {
+	human_bytes "$(awk -v m="${1:-0}" 'BEGIN { printf "%.0f", m * 1048576 }')"
+}
+
+# ui_extend: RETRODATA was not grown because it holds files (stick.status skipped-data):
+# offer 05-stick.sh --force, which erases them. Returns 0 in every case; the caller then
+# mounts whatever RETRODATA is.
+ui_extend() {
+	read -r _xs _xpart _xdisk _xents <<EOS
+$(stick_status)
+EOS
+	[ "$_xs" = skipped-data ] || return 0
+	_xents=$(printf '%s' "$_xents" | sed 's/,/, /g')
+	dlg --title "$T_EXTEND_TITLE" --defaultno --yesno \
+		"$(fmt "$T_EXTEND_TEXT" "$(human_mib "$_xpart")" "$(human_mib "$_xdisk")" "$_xents")" 13 "$UI_W_MED"
+	case $? in
+	0) ;;
+	255)
+		ui_escape
+		return 0
+		;;
+	*)
+		log INFO "ui: the user keeps the small RETRODATA partition ($_xpart of $_xdisk MiB)"
+		return 0
+		;;
+	esac
+	log INFO "ui: the user asked to extend RETRODATA (erasing: $_xents)"
+	sync
+	# 05-stick.sh --force needs the partition unmounted.
+	is_mountpoint "$RETRO_DST" && umount "$RETRO_DST" 2>/dev/null
+	dlg --title "$T_EXTEND_TITLE" --infobox "$T_EXTEND_WAIT" 5 "$UI_W_MED"
+	sh "$RETRO_HOME/05-stick.sh" --force >/dev/null 2>>"$RETRO_RUN/stick.err"
+	read -r _xs _xnew _xrest <<EOS
+$(stick_status)
+EOS
+	if [ "$_xs" = grown ]; then
+		_xrest=$(printf '%s' "$_xrest" | awk '{ print $1 }')
+		dlg --title "$T_EXTEND_TITLE" --infobox "$(fmt "$T_EXTEND_DONE" "$(human_mib "$_xrest")")" 5 "$UI_W_MED"
+		sleep 2
+	else
+		[ "$_xs" = error ] && _xs="$_xnew $_xrest"
+		ui_msg "$T_EXTEND_TITLE" "$(fmt "$T_EXTEND_FAILED" "$_xs")"
+	fi
+	return 0
+}
+
+# ui_dest [local]: returns 0 with dest.conf written, 1 to go back. With "local" (manual
+# copying) the network choice is refused.
 ui_dest() {
+	_dmode=${1:-}
 	while :; do
 		set --
 		_rd=$(blk_label_dev RETRODATA)
-		[ -n "$_rd" ] && set -- usb "$T_DEST_RETRODATA"
+		if [ -n "$_rd" ]; then
+			_rdt=$T_DEST_RETRODATA
+			read -r _xs _xpart _xdisk _xrest <<EOS
+$(stick_status)
+EOS
+			[ "$_xs" = skipped-data ] && _rdt="$_rdt $(fmt "$T_DEST_NOT_EXTENDED" "$(human_mib "$_xpart")")"
+			set -- usb "$_rdt"
+		fi
 		set -- "$@" disk "$T_DEST_DISK" net "$T_DEST_NET" back "$T_DEST_BACK"
 		_c=$(dlg --title "$T_DEST_TITLE" --no-tags --menu "$T_DEST_TEXT" 13 "$UI_W_MED" 4 "$@")
 		_rc=$?
@@ -352,14 +465,22 @@ ui_dest() {
 		[ $_rc = 0 ] || return 1
 		case $_c in
 		usb)
-			if mount_rw "$_rd"; then
+			ui_extend
+			_rd=$(blk_label_dev RETRODATA)
+			if [ -n "$_rd" ] && mount_rw "$_rd"; then
 				printf 'type=usb\npath=%s\ndev=%s\n' "$RETRO_DST" "$_rd" >"$RETRO_RUN/dest.conf"
 				return 0
 			fi
 			ui_msg "$T_DEST_TITLE" "$T_DEST_MOUNT_FAILED $_rd\n$(tail -n 1 "$UI_TMP/mount.err")"
 			;;
 		disk) ui_dest_disk && return 0 ;;
-		net) ui_dest_net && return 0 ;;
+		net)
+			if [ "$_dmode" = local ]; then
+				ui_msg "$T_BROWSE_TITLE" "$T_BROWSE_NO_NET"
+				return 1
+			fi
+			ui_dest_net && return 0
+			;;
 		*) return 1 ;;
 		esac
 	done
@@ -432,8 +553,15 @@ summary_text() {
 	[ "$(result mismatched)" != 0 ] && printf '%s: %s\n' "$T_SUM_MISMATCHED" "$(result mismatched)"
 	printf '%s: %s\n' "$T_SUM_DEST" "$(result dest)"
 	printf '%s: BACKUP/%s/retro-backup.log, MANIFEST.tsv\n' "$T_SUM_LOG" "$(result machine)"
+	_mf=$(sed -n 's/^files=//p' "$RETRO_RUN/manual.result" 2>/dev/null)
+	if [ "${_mf:-0}" != 0 ]; then
+		printf '%s: %s %s, %s, %s\n' "$T_SUM_MANUAL" "$_mf" "$T_CONFIRM_FILES" \
+			"$(human_bytes "$(sed -n 's/^bytes=//p' "$RETRO_RUN/manual.result")")" \
+			"$(sed -n 's/^path=//p' "$RETRO_RUN/manual.result")"
+	fi
 	if [ "$(dest_conf type)" != net ]; then
-		if [ "$(result unmounted)" = 1 ]; then printf '\n%s\n' "$T_SUM_SAFE"; else printf '\n%s\n' "$T_SUM_NOTSAFE"; fi
+		# A manual copy after the copy stage mounts the destination again.
+		if [ "$(result unmounted)" = 1 ] && ! is_mountpoint "$RETRO_DST"; then printf '\n%s\n' "$T_SUM_SAFE"; else printf '\n%s\n' "$T_SUM_NOTSAFE"; fi
 	fi
 	return 0
 }
@@ -443,8 +571,8 @@ ui_summary() {
 	summary_text >"$UI_TMP/summary"
 	while :; do
 		_c=$(dlg --title "$T_SUM_TITLE" --no-tags --cancel-label "$T_MENU_LOG" \
-			--menu "$(cat "$UI_TMP/summary")" 22 "$UI_W_BIG" 4 more "$T_SUM_MORE" shell "$T_MENU_SHELL" \
-			poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
+			--menu "$(cat "$UI_TMP/summary")" 22 "$UI_W_BIG" 5 more "$T_SUM_MORE" browse "$T_MENU_BROWSE" \
+			shell "$T_MENU_SHELL" poweroff "$T_MENU_POWEROFF" reboot "$T_MENU_REBOOT")
 		case $? in
 		0) ;;
 		1)
@@ -458,6 +586,10 @@ ui_summary() {
 		esac
 		case $_c in
 		more) return 0 ;;
+		browse)
+			ui_browse
+			summary_text >"$UI_TMP/summary"
+			;;
 		shell)
 			clear
 			printf '%s\n' "$T_SHELL_HINT"

@@ -39,7 +39,11 @@ make test-qemu    # boots the image on an emulated Pentium III with 256 MB (QEMU
 (or Rufus in DD mode, or balenaEtcher). The stick has two partitions: `RETROBOOT` (boot files)
 and `RETRODATA` (exFAT, where the copies land; old Windows versions do not show it, modern
 machines do). The image is 1 GiB; on the first boot the client extends `RETRODATA` to the whole
-stick while it is still empty, so a 32 GB stick gives about 31 GB of copy space. Boot the old PC from USB (boot menu is usually F12, F8, Esc or F11; if the BIOS
+stick while it is still empty, so a 32 GB stick gives about 31 GB of copy space. Files that macOS or
+Windows drop onto a freshly mounted volume (`.fseventsd`, `System Volume Information`, ...) do not
+count; if the partition holds anything else, the UI asks before extending it, since extending
+erases the partition. If it ever stays small, pick the pendrive as destination and answer yes to
+the "extend" question, or run `sh /opt/retro/05-stick.sh --force` from the tty2 shell. Boot the old PC from USB (boot menu is usually F12, F8, Esc or F11; if the BIOS
 has no USB boot, burn `out/retro.iso` or the included Plop Boot Manager to a CD).
 
 **LAN.** On a modern machine on the same wired network run `retro-helper --pxe --iface <nic>`,
@@ -52,7 +56,9 @@ direct-cable mode.
 folder (documents, pictures, email stores, and "hot folders" found by scanning the whole disk
 for media and documents), then a destination choice, a space check and the copy with progress.
 A manifest with md5 sums and a log are written next to the copies. Esc drops to a shell; tty2 is a
-root shell, tty3 is Midnight Commander. The console runs at 800x600 (VESA framebuffer, works on
+root shell, tty3 is Midnight Commander. "Browse the PC's files and copy by hand" in the
+menu opens Midnight Commander (a Norton Commander style two-panel view) with the PC's disks on the
+left, read-only, and a `manual` folder on the pendrive on the right; F5 copies, F10 returns. The console runs at 800x600 (VESA framebuffer, works on
 any 2000s graphics card) with a Latin-2 font; the "safe" boot entry keeps plain 80x25 VGA text.
 
 ## Status

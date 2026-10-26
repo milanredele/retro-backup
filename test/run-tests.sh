@@ -539,6 +539,87 @@ eq "All/None ticks everything" "$(tr '\0' '\n' <"$STUB_DIR/call.$C3" | grep -cx 
 GA=$(calls_of gauge | tail -n 1)
 check "copy gauge reached 100%" grep -qx 100 "$STUB_DIR/gauge.$GA"
 check "files arrived at the helper through the UI" test -s "$T/helper/BACKUP/$M/sdc1/home/milan/.thunderbird/xyz.default/prefs.js"
+
+# Destination menu, RETRODATA not extended (stick.status skipped-data): the item says so and
+# Yes on the prompt runs 05-stick.sh --force (a fake one: RETRO_HOME is switched after
+# sourcing), then mounts. RETRODATA and mount_rw are faked; No keeps the small partition.
+FH=$T/fakehome
+mkdir -p "$FH"
+cat >"$FH/05-stick.sh" <<'EOS'
+printf '%s\n' "$*" >>"$RETRO_RUN/stick.args"
+echo "grown 768 7600" >"$RETRO_RUN/stick.status"
+EOS
+ui_dest_fake() { # ui_dest_fake ANSWER(0 yes, 1 no) -> $T/dest.rc, stub calls in $STUB_DIR
+	rm -rf "$STUB_DIR" "$RETRO_RUN/stick.args" "$RETRO_RUN/dest.conf"
+	mkdir -p "$STUB_DIR"
+	echo 'skipped-data 768 7600 .fseventsd,.Spotlight-V100' >"$RETRO_RUN/stick.status"
+	printf 'menu\t0\tusb\nyesno\t%s\t\n' "$1" >"$STUB_DIR/queue"
+	(
+		. "$RETRO_HOME/30-ui.sh"
+		blk_label_dev() { echo /dev/fake2; }
+		mount_rw() { return 0; }
+		RETRO_HOME=$FH
+		ui_dest
+		echo "$?" >"$T/dest.rc"
+	) >"$T/dest.out" 2>&1
+}
+ui_dest_fake 0
+check "extend: stub saw no unexpected screen" test ! -s "$STUB_DIR/errors"
+eq "extend: ui_dest returns 0" "$(cat "$T/dest.rc")" 0
+check "extend: the menu item says the partition is not extended" sh -c "tr '\0' '\n' <'$STUB_DIR/call.1' | grep -qx 'This pendrive (RETRODATA partition) (768 MB, not extended)'"
+check "extend: the prompt names the sizes and the entries" sh -c "tr '\0' '\n' <'$STUB_DIR/call.2' | grep -q 'only 768 MB of the 7.4 GB stick.*holds: .fseventsd, .Spotlight-V100\.'"
+check "extend: the prompt defaults to No" sh -c "tr '\0' '\n' <'$STUB_DIR/call.2' | grep -qx -- --defaultno"
+eq "extend: Yes runs 05-stick.sh --force" "$(cat "$RETRO_RUN/stick.args" 2>/dev/null)" "--force"
+check "extend: the new size is shown" grep -q 'whole stick: 7.4 GB' "$STUB_DIR"/call.*
+eq "extend: dest.conf written for the pendrive" "$(tr '\n' ' ' <"$RETRO_RUN/dest.conf")" "type=usb path=$RETRO_DST dev=/dev/fake2 "
+ui_dest_fake 1
+eq "extend: No does not run 05-stick.sh" "$(test -e "$RETRO_RUN/stick.args" && echo ran)" ""
+eq "extend: No continues with the small partition" "$(cat "$T/dest.rc") $(head -n 1 "$RETRO_RUN/dest.conf")" "0 type=usb"
+check "extend: No is logged" grep -q 'keeps the small RETRODATA partition (768 of 7600 MiB)' "$RETRO_LOG"
+
+# Menu -> "Browse and copy by hand": a stub mc in PATH records its arguments and "copies" a
+# file into the right panel. First with a network destination (refused), then the pendrive.
+mkdir -p "$T/bin"
+cat >"$T/bin/mc" <<'EOS'
+#!/bin/sh
+printf '%s\n' "$@" >"$RETRO_RUN/mc.args"
+echo "TERM=$TERM LC_ALL=$LC_ALL" >"$RETRO_RUN/mc.env"
+for a in "$@"; do last=$a; done
+printf 'by hand\n' >"$last/note.txt"
+EOS
+chmod +x "$T/bin/mc"
+ui_browse_fake() { # ui_browse_fake QUEUE-LINES...
+	rm -rf "$STUB_DIR" "$RETRO_RUN/mc.args"
+	mkdir -p "$STUB_DIR"
+	printf '%b\n' "$@" >"$STUB_DIR/queue"
+	(
+		. "$RETRO_HOME/30-ui.sh"
+		PATH=$T/bin:$PATH # after lib/common.sh, which sets PATH
+		blk_label_dev() { echo /dev/fake2; }
+		mount_rw() { return 0; }
+		ui_menu
+		echo "$?" >"$T/menu.rc"
+		summary_text >"$T/summary.txt"
+	) >"$T/browse.out" 2>&1
+}
+echo 'grown 768 7600' >"$RETRO_RUN/stick.status"
+printf 'type=net\nurl=%s\n' "$URL" >"$RETRO_RUN/dest.conf"
+rm -f "$RETRO_RUN/manual.result"
+ui_browse_fake 'menu\t0\tbrowse' 'menu\t0\tnet' 'msgbox\t0\t'
+check "browse/net: stub saw no unexpected screen" test ! -s "$STUB_DIR/errors"
+check "browse/net: refused with a message" sh -c "tr '\0' '\n' <'$STUB_DIR/call.3' | grep -qx '$T_BROWSE_NO_NET'"
+check "browse/net: mc not started" test ! -e "$RETRO_RUN/mc.args"
+check "browse: the menu offers it" sh -c "tr '\0' '\n' <'$STUB_DIR/call.1' | grep -qx \"$T_MENU_BROWSE\""
+ui_browse_fake 'menu\t0\tbrowse' 'menu\t0\tusb' 'msgbox\t0\t'
+check "browse: stub saw no unexpected screen" test ! -s "$STUB_DIR/errors"
+eq "browse: menu returns 0" "$(cat "$T/menu.rc")" 0
+eq "browse: mc arguments (no subshell, sources left, manual folder right)" "$(tr '\n' ' ' <"$RETRO_RUN/mc.args" 2>/dev/null)" "-u $RETRO_SRC_ROOT $RETRO_DST/BACKUP/$M/manual "
+eq "browse: mc environment" "$(cat "$RETRO_RUN/mc.env" 2>/dev/null)" "TERM=linux LC_ALL=C.UTF-8"
+check "browse: the hint names the manual folder" sh -c "tr '\0' '\n' <'$STUB_DIR/call.3' | grep -q 'right = the destination folder BACKUP/$M/manual'"
+check "browse: session end logged with count and size" grep -q "INFO ui: manual copy session ended (mc exit 0): 1 files, 8 B in $RETRO_DST/BACKUP/$M/manual" "$RETRO_LOG"
+eq "browse: dest.conf now the pendrive" "$(head -n 1 "$RETRO_RUN/dest.conf")" "type=usb"
+check "browse: the summary mentions the manual folder" grep -qx "$T_SUM_MANUAL: 1 files, 8 B, BACKUP/$M/manual" "$T/summary.txt"
+rm -rf "$RETRO_DST/BACKUP/$M/manual" "$RETRO_RUN/manual.result" "$RETRO_RUN/stick.status"
 : >"$RETRO_CMDLINE"
 
 # --------------------------------------------------------------------------- big (optional)
@@ -574,7 +655,9 @@ for a in range(5000):
 fi
 
 # --------------------------------------------------------------------------- done
-PASS=$(grep -c "^ok" "$T/tally" 2>/dev/null || echo 0)
-FAIL=$(grep -c "^fail" "$T/tally" 2>/dev/null || echo 0)
+# grep -c prints 0 and exits 1 when nothing matches: no "|| echo 0" (that gave "0\n0").
+PASS=$(grep -c "^ok" "$T/tally" 2>/dev/null)
+FAIL=$(grep -c "^fail" "$T/tally" 2>/dev/null)
+PASS=${PASS:-0} FAIL=${FAIL:-0}
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ]
