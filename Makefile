@@ -63,3 +63,7 @@ test-e2e:
 # Screenshots of the UI on the VESA console (QEMU, out/shot-*.png).
 screenshot:
 	sh test/screenshot-qemu.sh $(QEMU_ARGS)
+
+# Walk through the UI in QEMU and save the README screenshots (docs/screenshots/).
+screenshot-tour:
+	sh test/screenshot-tour.sh

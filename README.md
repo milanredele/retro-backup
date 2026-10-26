@@ -10,6 +10,20 @@ Base system: Tiny Core Linux 16.2 (32-bit, i486 kernel 6.12.11 without PAE, so i
 Pentium M and Geode class CPUs). The whole system is about 30 MB and runs from RAM; 128 MB is
 enough.
 
+## Screenshots
+
+Taken in QEMU on an emulated Pentium III with 256 MB (`make screenshot-tour`), against a test disk
+with a Windows XP volume, a Windows 7 volume, a camera card and a Linux root.
+
+| | |
+|---|---|
+| ![Boot menu](docs/screenshots/01-boot-menu.png) **Boot menu.** Default entry, a safe entry with plain VGA text and no ACPI, a serial-console entry for debugging, and Plop for BIOSes that cannot boot USB. | ![Scanning](docs/screenshots/02-scanning.png) **Scanning.** Every volume is mounted read-only and searched for profiles, mail stores and media folders. |
+| ![Checklist](docs/screenshots/03-checklist.png) **What was found.** Grouped by disk and user: documents, pictures, Outlook and Outlook Express mail, Thunderbird, Windows Live Mail, Maildir, plus "hot folders" like `C:\Fotók 2007` found by the sweep. Likely user data is pre-ticked. | ![Menu](docs/screenshots/04-menu.png) **Menu.** Rescan, shell, log, and the two-panel file manager for copying by hand. |
+| ![Destination](docs/screenshots/05-destination.png) **Destination.** The pendrive itself, another USB disk, or a modern computer on the LAN running `retro-helper`. | ![Copy by hand](docs/screenshots/06-browse-hint.png) **Copy by hand.** What the two panels are and which keys do what. |
+| ![Midnight Commander](docs/screenshots/07-midnight-commander.png) **Midnight Commander.** The PC's volumes on the left, read-only; a `manual` folder on the pendrive on the right. F5 copies, F10 returns. | ![Back in the list](docs/screenshots/08-checklist-after-browse.png) **Back in the list.** Ticks survive the detour. |
+| ![Ready to copy](docs/screenshots/09-confirm.png) **Ready to copy.** Selection size against free space, a ten-second speed probe and the estimated time. | ![Copying](docs/screenshots/10-copying.png) **Copying.** Per group and per file, with an error count; md5 sums go into a manifest. |
+| ![Done](docs/screenshots/11-summary.png) **Done.** Totals, renames, failures, where the log is, and the options to copy more, open the file manager, or power off. | |
+
 ## Layout
 
 | Directory | What |
