@@ -56,6 +56,8 @@ chk() { if [ "$2" = "$3" ]; then echo "CHECK $1 OK"; else echo "CHECK $1 FAIL (g
 chk volumes "$(wc -l < $R/volumes.tsv)" 4
 chk os_hints "$(cut -f6 $R/volumes.tsv | sort | tr "\n" ,)" "data,linux,win7,winxp,"
 chk grown "$(awk -v s="$(cat /sys/class/block/sda2/size)" "BEGIN{print (s > 3145728) ? 1 : 0}")" 1
+chk droppings_ignored "$(grep -c "ignoring OS entry" $R/retro-backup.log)" 5
+chk stick_status "$(cut -d" " -f1 $R/stick.status)" grown
 chk fs_ntfs "$(cut -f2 $R/volumes.tsv | grep -c ntfs)" 2
 chk fotok "$(awk -F"\t" "\$7==\"Fotók 2007\"{print \$8}" $R/scan.tsv)" 60
 chk dcim "$(awk -F"\t" "\$7 ~ /DCIM/{s+=\$8} END{print s+0}" $R/scan.tsv)" 56
